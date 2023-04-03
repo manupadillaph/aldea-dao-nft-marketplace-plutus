@@ -1,0 +1,4 @@
+2022-07-19 19:56:31.645271046000 [10246(ThreadId 13)] ERROR APP - cadbal: runProcess: exec: does not exist (No such file or directory)
+2022-07-19 19:57:22.213861933000 [10486(ThreadId 13)] ERROR APP - [CRITICAL] can not get the initial ghci prompt.
+2022-07-19 19:58:22.948829927000 [10698(ThreadId 13)] ERROR APP - [CRITICAL] can not get the initial ghci prompt.
+2022-07-19 20:01:43.759694305000 [11382(ThreadId 13)] ERROR APP - [CRITICAL] can not get the initial ghci prompt.

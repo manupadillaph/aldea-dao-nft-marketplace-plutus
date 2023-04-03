@@ -1,0 +1,122 @@
+cabal-version:      2.4
+Name:               aldea-dao-nft-marketplace
+Version:            0.1.0.0
+Author:              Manuel Padilla
+Maintainer:          manuelpad@gmail.com
+Build-Type:          Simple
+Copyright:           © 2022 Manuel Padilla
+License:             Apache-2.0
+License-files:       LICENSE
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     
+                      Deploy
+                     , TestWithPABSimulator
+                     , TestWithTraceEmulator
+
+                     , Validators.MarketNFTV2
+                     , Validators.MarketNFTV2.Helpers
+                     , Validators.MarketNFTV2.OffChain
+                     , Validators.MarketNFTV2.OnChain
+                     , Validators.MarketNFTV2.PAB
+                     , Validators.MarketNFTV2.ProtocolIDPolicy
+                     , Validators.MarketNFTV2.TestWithPABSimulator
+                     , Validators.MarketNFTV2.Types
+
+                     , Utils
+
+  --------------------
+  -- Local components
+  --------------------
+  build-depends:
+                     --  cardano-api
+                     cardano-api             >=1.35
+                     --, cardano-cli             >=1.35
+                     , cardano-addresses
+                     , cardano-crypto-class
+                     , cardano-ledger-core
+                     , cardano-ledger-alonzo
+                     , cardano-ledger-babbage
+                     , cardano-ledger-shelley
+                     , cardano-wallet-core
+                     , data-default
+                     , playground-common
+                     , plutonomy
+                     , plutus-chain-index-core
+                     , plutus-contract
+                     -- , plutus-core
+                     , plutus-ledger
+                     --, plutus-ledger-api
+                     , plutus-ledger-api       >=1.0.0
+                     , plutus-ledger-constraints
+                     , plutus-script-utils
+                     , plutus-pab
+                     --, plutus-script-utils >=1.0.0
+                     --, plutus-use-cases
+                     , plutus-tx               >=1.0.0
+                     , plutus-tx-plugin        >=1.0.0 
+    
+  ------------------------
+  -- Non-IOG dependencies
+  ------------------------
+  build-depends:
+                       aeson
+                     , base >= 4.9 && < 5
+                     , base16-bytestring
+                     , bech32
+                     , bytestring
+                     --, curl-aeson
+                     --, network
+                     , containers
+                     , freer-extras
+                     , freer-simple
+                     , filepath
+                     -- , hashable
+                     , lens
+                     , openapi3
+                     , prettyprinter
+                     , regex
+                     -- , semigroups
+                     , serialise
+                     -- , streaming
+                     -- , template-haskell
+                     , text
+                     , stm 
+                     , old-locale
+                     , time
+                     , utf8-string
+                     , directory
+                     , MissingH
+                     , split
+                     , hex-text
+                    --  , stm , time, old-locale,directory  en test2
+                    
+  default-language:    Haskell2010
+  ghc-options:         -Wall -fobject-code -fno-ignore-interface-pragmas -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr -fno-specialise
+
+
+executable deploy
+  main-is: deploy.hs
+  hs-source-dirs:
+      app
+  build-depends:
+      base ^>=4.14.1.0,
+      aldea-dao-nft-marketplace,
+      filepath
+  default-language: Haskell2010
+
+
+executable spec
+  main-is: Spec.hs
+  hs-source-dirs:      test
+  ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       aeson
+                     , base ^>= 4.14.1.0
+                     , data-default
+                     , freer-extras
+                     , freer-simple
+                     , text
+
+
+
