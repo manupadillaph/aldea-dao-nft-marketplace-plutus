@@ -11,18 +11,20 @@ License-files:       LICENSE
 library
   hs-source-dirs:      src
   exposed-modules:     
-                      Deploy
-                     , TestWithPABSimulator
-                     , TestWithTraceEmulator
+                      
 
-                     , Validators.MarketNFTV2
-                     , Validators.MarketNFTV2.Helpers
-                     , Validators.MarketNFTV2.OffChain
-                     , Validators.MarketNFTV2.OnChain
-                     , Validators.MarketNFTV2.PAB
-                     , Validators.MarketNFTV2.ProtocolIDPolicy
-                     , Validators.MarketNFTV2.TestWithPABSimulator
-                     , Validators.MarketNFTV2.Types
+                     MarketNFTV2
+                     , MarketNFTV2.Deploy
+                     , MarketNFTV2.Helpers
+                     , MarketNFTV2.HelpersOffChain
+                     , MarketNFTV2.OffChain
+                     , MarketNFTV2.OffChainEval
+                     , MarketNFTV2.OnChain
+                     , MarketNFTV2.ProtocolIDPolicy
+                     , MarketNFTV2.PABHelpers
+                     , MarketNFTV2.PABSimulator
+                     , MarketNFTV2.TraceEmulator
+                     , MarketNFTV2.Types
 
                      , Utils
 
@@ -56,6 +58,10 @@ library
                      --, plutus-use-cases
                      , plutus-tx               >=1.0.0
                      , plutus-tx-plugin        >=1.0.0 
+                     , cardano-binary
+                     , plutus-tx-constraints
+                     
+
     
   ------------------------
   -- Non-IOG dependencies

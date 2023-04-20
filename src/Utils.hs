@@ -18,7 +18,9 @@
 -- {-# LANGUAGE TupleSections                            #-}
 {-# LANGUAGE AllowAmbiguousTypes                #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE Strict #-}
 -- {-# LANGUAGE NumericUnderscores                 #-}
+{- HLINT ignore "Use camelCase" -}
 ------------------------------------------------------------------------------------------
 module Utils where
 ------------------------------------------------------------------------------------------
@@ -36,6 +38,7 @@ import qualified Cardano.Ledger.Credential                            as LedgerC
 import qualified Cardano.Ledger.Crypto                                    as LedgerCrypto (StandardCrypto)
 import qualified Cardano.Ledger.Hashes                                    as LedgerHashes (ScriptHash (..))
 import qualified Cardano.Ledger.Keys                                        as LedgerKeys (KeyHash (..))
+-- import qualified Cardano.Node.Emulator.Params                           as CardanoNodeEmulatorParams (testnet)
 import qualified Codec.Binary.Bech32                                        as CodecBinaryBech32
 import qualified Codec.Serialise                                                as CodecSerialise (serialise)
 import qualified Data.Aeson                                                         as DataAeson (decode, encode)
@@ -53,14 +56,17 @@ import qualified Data.Text.Encoding                                         as D
 import qualified Data.Text.Lazy                                                 as DataTextLazy
 import qualified Data.Text.Lazy.Encoding                                as DataTextLazyEncoding
 import qualified Ledger
-import qualified Ledger.Address                                                 as LedgerAddress (Address)
+-- import qualified Ledger.Address                                                 as LedgerAddress (Address)
+import qualified Ledger.Address  as LedgerAddress 
 import qualified Ledger.Bytes                                                     as LedgerBytes (LedgerBytes(LedgerBytes), fromHex) --getLedgerBytes
+import qualified Ledger.Tx.CardanoAPI                                       as LedgerTxCardanoAPI
 import qualified Plutus.Script.Utils.V2.Scripts                 as UtilsScriptsV2
 import qualified Plutus.V1.Ledger.Api                                     as LedgerApiV1
 import qualified Plutus.V1.Ledger.Credential                        as LedgerCredentialV1
 -- import qualified Plutus.V1.Ledger.Crypto                         as LedgerCryptoV1 
 -- import qualified Plutus.V1.Ledger.EvaluationContext    as LedgerEvaluationContextV1
 -- import qualified Plutus.V1.Ledger.Bytes                            as LedgerBytesV1
+import qualified Plutus.V1.Ledger.ProtocolVersions             as LedgerProtocolVersionsV1  
 import qualified Plutus.V1.Ledger.Value                                 as LedgerValueV1 (TokenName (..))
 import qualified Plutus.V1.Ledger.Scripts                             as LedgerScriptsV1
 import qualified Plutus.V2.Ledger.Api                                     as LedgerApiV2
@@ -72,7 +78,8 @@ import qualified PlutusTx
 import qualified PlutusTx.Builtins                                            as TxBuiltins (toBuiltin)
 import qualified PlutusTx.Builtins.Class                                as TxBuiltinsClass
 import qualified PlutusTx.Builtins.Internal                         as TxBuiltinsInternal (BuiltinByteString (..)) --decodeUtf8
-import                     PlutusTx.Prelude                                             ( (>>), return, Bool(True), Maybe(..), Either(..), BuiltinByteString, Semigroup((<>)), sha2_256, ($), (.), fst, (<$>), (++), maybe )
+--decodeUtf8
+import                     PlutusTx.Prelude                                             ( return, Bool(True), Maybe(..), Either(..), BuiltinByteString, Semigroup((<>)), sha2_256, ($), (.), fst, (<$>), (++), maybe, Integer )
 import qualified Prelude                                                                as P
 import qualified System.Directory                                             as SystemDirectory
 import qualified System.FilePath.Posix                                    as SystemFilePathPosix
@@ -226,6 +233,18 @@ readFileToPlutusData filepath = do
 writeUnit :: P.String -> P.IO ()
 writeUnit path = writePlutusDataToFile (path ++ "/unit.json") ()
 
+
+----------------------------------------------------------------------------------------
+
+tryReadWalletId :: P.String -> Maybe WalletEmulator.WalletId
+tryReadWalletId = DataAeson.decode . DataAeson.encode
+
+----------------------------------------------------------------------------------------
+
+unsafeReadWalletId :: P.String -> WalletEmulator.WalletId
+unsafeReadWalletId s = DataMaybe.fromMaybe (P.error $ "can't parse " ++ s ++ " as a WalletId") $ tryReadWalletId s
+
+
 ----------------------------------------------------------------------------------------
 
 credentialLedgerToPlutus :: LedgerCredential.Credential a LedgerCrypto.StandardCrypto -> LedgerCredentialV1.Credential
@@ -246,25 +265,16 @@ stakeReferenceLedgerToPlutus LedgerCredential.StakeRefNull                      
 ----------------------------------------------------------------------------------------
 
 tryReadAddress :: P.String -> Maybe LedgerApiV1.Address
-tryReadAddress x = case CardanoApi.deserialiseAddress CardanoApi.AsAddressAny $ DataText.pack x of
-    Nothing                                                             -> Nothing
-    Just (ApiShelley.AddressByron _)                                    -> Nothing
-    Just (ApiShelley.AddressShelley (ApiShelley.ShelleyAddress _ p s))  -> 
-        Just LedgerApiV1.Address
-            {
-                LedgerApiV1.addressCredential                = credentialLedgerToPlutus p,
-                LedgerApiV1.addressStakingCredential = stakeReferenceLedgerToPlutus s
-            }
-
-----------------------------------------------------------------------------------------
-
-tryReadWalletId :: P.String -> Maybe WalletEmulator.WalletId
-tryReadWalletId = DataAeson.decode . DataAeson.encode
-
-----------------------------------------------------------------------------------------
-
-unsafeReadWalletId :: P.String -> WalletEmulator.WalletId
-unsafeReadWalletId s = DataMaybe.fromMaybe (P.error $ "can't parse " ++ s ++ " as a WalletId") $ tryReadWalletId s
+tryReadAddress x = 
+    case CardanoApi.deserialiseAddress CardanoApi.AsAddressAny $ DataText.pack x of
+        Nothing                                                             -> Nothing
+        Just (ApiShelley.AddressByron _)                                    -> Nothing
+        Just (ApiShelley.AddressShelley (ApiShelley.ShelleyAddress _ p s))  -> 
+            Just LedgerApiV1.Address
+                {
+                    LedgerApiV1.addressCredential        = credentialLedgerToPlutus p,
+                    LedgerApiV1.addressStakingCredential = stakeReferenceLedgerToPlutus s
+                }
 
 ----------------------------------------------------------------------------------------
 
@@ -287,30 +297,38 @@ unsafeReadTxOutRef s =
 ----------------------------------------------------------------------------------------
 
 getCredentials :: LedgerApiV1.Address -> Maybe (Ledger.PaymentPubKeyHash, Maybe Ledger.StakePubKeyHash)
-getCredentials (LedgerApiV1.Address x y) = case x of
-    LedgerApiV1.ScriptCredential _    -> Nothing
-    LedgerApiV1.PubKeyCredential pkh ->
-        let
-            !ppkh = Ledger.PaymentPubKeyHash pkh
-        in
-            case y of
-                    Nothing                                                             -> Just (ppkh, Nothing)
-                    Just LedgerApiV1.StakingPtr {}                -> Nothing
-                    Just (LedgerApiV1.StakingHash h)            -> case h of
-                            LedgerApiV1.ScriptCredential _        -> Nothing
+getCredentials (LedgerApiV1.Address x y) = 
+    case x of
+        LedgerApiV1.ScriptCredential _   -> Nothing
+        LedgerApiV1.PubKeyCredential pkh ->
+            let
+                !ppkh = Ledger.PaymentPubKeyHash pkh
+            in
+                case y of
+                    Nothing                                   -> Just (ppkh, Nothing)
+                    Just LedgerApiV1.StakingPtr {}            -> Nothing
+                    Just (LedgerApiV1.StakingHash h)          -> 
+                        case h of
+                            LedgerApiV1.ScriptCredential _    -> Nothing
                             LedgerApiV1.PubKeyCredential pkh' -> Just (ppkh, Just $ Ledger.StakePubKeyHash pkh')
 
 ----------------------------------------------------------------------------------------
 
-unsafePaymentPubKeyHash :: LedgerApiV1.Address -> Ledger.PaymentPubKeyHash
-unsafePaymentPubKeyHash addr = maybe (P.error $ "script address " ++ P.show addr ++ " does not contain a payment key") fst $ getCredentials addr
+unsafeGetPaymentPubKeyHash :: LedgerApiV1.Address -> Ledger.PaymentPubKeyHash
+unsafeGetPaymentPubKeyHash addr = maybe (P.error $ "script address " ++ P.show addr ++ " does not contain a payment key") fst $ getCredentials addr
 
-unsafeStakePubKeyHash :: LedgerApiV1.Address -> Ledger.StakePubKeyHash
-unsafeStakePubKeyHash addr = 
+unsafeGetStakePubKeyHash :: LedgerApiV1.Address -> Ledger.StakePubKeyHash
+unsafeGetStakePubKeyHash addr = 
     case getCredentials addr of
-        Nothing                    -> P.error $ "unexpected script address " ++ P.show addr
+        Nothing           -> P.error $ "unexpected script address " ++ P.show addr
         Just (_, Nothing) -> P.error $ "addres " ++ P.show addr ++ " contains no stake component"
-        Just (_, Just x) -> x
+        Just (_, Just x)  -> x
+
+getStakePubKeyHash :: LedgerApiV1.Address -> Maybe Ledger.StakePubKeyHash
+getStakePubKeyHash addr = 
+    case getCredentials addr of
+        Nothing     -> Nothing
+        Just (_, x) -> x
 
 ----------------------------------------------------------------------------------------
 
@@ -379,8 +397,15 @@ hashValidator = UtilsScriptsV2.validatorHash
 hashScriptValidator :: LedgerApiV2.Validator -> LedgerApiV2.ScriptHash
 hashScriptValidator = UtilsScriptsV2.scriptHash . LedgerApiV2.getValidator 
 
+-- addressValidator :: LedgerApiV2.ValidatorHash -> LedgerAddress.Address
+-- addressValidator = Ledger.scriptHashAddress
+
 addressValidator :: LedgerApiV2.ValidatorHash -> LedgerAddress.Address
 addressValidator = Ledger.scriptHashAddress
+
+-- gameAddress :: CardanoAddress
+-- gameAddress = Address.mkValidatorCardanoAddress CardanoNodeEmulatorParamstestnet $ Script.validatorScript gameInstance
+
 
 ------------------------------------------------------------------------------------------
 
@@ -416,22 +441,22 @@ writeValidatorV1 path file codeValidator = do
 
 ----------------------------------------------------------------------------------------
 
-getScriptUnValidatorV2 :: LedgerApiV2.Validator -> LedgerApiV2.Script
-getScriptUnValidatorV2    = LedgerApiV2.unValidatorScript
+getScriptUnValidator :: LedgerApiV2.Validator -> LedgerApiV2.Script
+getScriptUnValidator    = LedgerApiV2.unValidatorScript
 
-getScriptShortBsV2 :: LedgerApiV2.Script -> DataByteStringShort.ShortByteString
-getScriptShortBsV2 = DataByteStringShort.toShort . DataByteStringLazy.toStrict . CodecSerialise.serialise
+getScriptShortBs :: LedgerApiV2.Script -> DataByteStringShort.ShortByteString
+getScriptShortBs = DataByteStringShort.toShort . DataByteStringLazy.toStrict . CodecSerialise.serialise
 
-getScriptSerialisedV2 :: DataByteStringShort.ShortByteString -> ApiShelley.PlutusScript ApiShelley.PlutusScriptV2
-getScriptSerialisedV2 = ApiShelley.PlutusScriptSerialised
+getScriptSerialised :: DataByteStringShort.ShortByteString -> ApiShelley.PlutusScript ApiShelley.PlutusScriptV2
+getScriptSerialised = ApiShelley.PlutusScriptSerialised
 
-writeValidatorV2 :: P.String -> P.String -> LedgerScriptsV1.Validator -> P.IO (Either (CardanoApi.FileError ()) ())
-writeValidatorV2 path file codeValidator = do
+writeValidator :: P.String -> P.String -> LedgerScriptsV1.Validator -> P.IO (Either (CardanoApi.FileError ()) ())
+writeValidator path file codeValidator = do
     let
         --v1dir = "V2"
-        !scriptUnValidatorV2 = getScriptUnValidatorV2 codeValidator
-        !scriptShortBsV2 = getScriptShortBsV2 scriptUnValidatorV2
-        !scriptSerialisedV2 = getScriptSerialisedV2 scriptShortBsV2
+        !scriptUnValidatorV2 = getScriptUnValidator codeValidator
+        !scriptShortBsV2 = getScriptShortBs scriptUnValidatorV2
+        !scriptSerialisedV2 = getScriptSerialised scriptShortBsV2
     SystemDirectory.createDirectoryIfMissing True path --SystemFilePathPosix.</> V2dir
     CardanoApi.writeFileTextEnvelope (path SystemFilePathPosix.</> file) Nothing scriptSerialisedV2
 
@@ -452,16 +477,16 @@ writeMintingPolicyV1 path file policy = do
 
 ----------------------------------------------------------------------------------------
 
-getScriptMintingPolicyV2 :: LedgerApiV2.MintingPolicy -> LedgerApiV2.Script
-getScriptMintingPolicyV2    = LedgerApiV2.getMintingPolicy
+getScriptMintingPolicy :: LedgerApiV2.MintingPolicy -> LedgerApiV2.Script
+getScriptMintingPolicy    = LedgerApiV2.getMintingPolicy
 
-writeMintingPolicyV2 :: P.String -> P.String -> LedgerApiV2.MintingPolicy -> P.IO (Either (CardanoApi.FileError ()) ())
-writeMintingPolicyV2 path file policy = do
+writeMintingPolicy :: P.String -> P.String -> LedgerApiV2.MintingPolicy -> P.IO (Either (CardanoApi.FileError ()) ())
+writeMintingPolicy path file policy = do
     let
         --v1dir = "V1"
-        !scriptMintingPolicyV2 = getScriptMintingPolicyV2 policy
-        !scriptShortBsV2 = getScriptShortBsV2 scriptMintingPolicyV2
-        !scriptSerialisedV2 = getScriptSerialisedV2 scriptShortBsV2
+        !scriptMintingPolicyV2 = getScriptMintingPolicy policy
+        !scriptShortBsV2 = getScriptShortBs scriptMintingPolicyV2
+        !scriptSerialisedV2 = getScriptSerialised scriptShortBsV2
     SystemDirectory.createDirectoryIfMissing True path --SystemFilePathPosix.</> v1dir
     CardanoApi.writeFileTextEnvelope (path SystemFilePathPosix.</> file) Nothing scriptSerialisedV2
 
@@ -538,27 +563,63 @@ validatorAddrToAddrBech32Mainnet addr = do
 
 ----------------------------------------------------------------------------------------
 
-evaluateScriptV2 :: LedgerApiV2.Validator -> P.IO ()
-evaluateScriptV2 validator = do
+evaluateScriptValidator :: LedgerApiV2.Validator -> [PlutusTx.Data] -> (LedgerApiV2.LogOutput, P.Either LedgerApiV2.EvaluationError LedgerApiV2.ExBudget, Integer)
+evaluateScriptValidator validator datas =
     let
-        !pv = LedgerApiV2.ProtocolVersion 6 0
+        !pv = LedgerProtocolVersionsV1.vasilPV 
 
-        !codeValidator = validator
+        !scriptUnValidatorV2 = Utils.getScriptUnValidator validator
 
-        !scriptUnValidatorV2 = Utils.getScriptUnValidatorV2 codeValidator
-        !scriptShortBsV2 = Utils.getScriptShortBsV2 scriptUnValidatorV2
-        --scriptSerialisedV2 = Utils.getScriptSerialisedV2 scriptShortBsV2
+        !scriptShortBsV2 = Utils.getScriptShortBs scriptUnValidatorV2
+        --scriptSerialisedV2 = Utils.getScriptSerialised scriptShortBsV2
 
-        !datums = []
+        !(logout, e) = LedgerApiV2.evaluateScriptCounting pv LedgerApiV2.Verbose LedgerEvaluationContextV2.evalCtxForTesting scriptShortBsV2 datas
 
-        !(logout, e) = LedgerApiV2.evaluateScriptCounting pv LedgerApiV2.Verbose LedgerEvaluationContextV2.evalCtxForTesting scriptShortBsV2 datums
+        !size = LedgerScriptsV1.scriptSize scriptUnValidatorV2
 
-    P.print ("Log output" :: P.String) >> P.print logout
-    case e of
-        Left evalErr -> P.print ("Eval Error" :: P.String) >> P.print evalErr
-        Right exbudget -> do
-            P.print ("Ex Budget" :: P.String) >> P.print exbudget
-            P.print ("Script size " :: P.String) >> P.print (Ledger.scriptSize scriptUnValidatorV2)
+    in 
+        (logout, e, size)
+  
 
+----------------------------------------------------------------------------------------
+
+evaluateScriptMint :: LedgerApiV2.MintingPolicy -> [PlutusTx.Data] -> (LedgerApiV2.LogOutput, P.Either LedgerApiV2.EvaluationError LedgerApiV2.ExBudget, Integer)
+evaluateScriptMint policy datas =
+    let
+        !pv = LedgerProtocolVersionsV1.vasilPV 
+
+        !scriptMintingPolicyV2 = Utils.getScriptMintingPolicy policy
+
+        !scriptShortBsV2 = Utils.getScriptShortBs scriptMintingPolicyV2
+        --scriptSerialisedV1 = Utils.getScriptSerialisedV1 scriptShortBsV1
+        
+        exBudget :: LedgerApiV2.ExBudget
+        exBudget = LedgerApiV2.ExBudget 10000000000 14000000
+    
+        -- !(logout, e) = Ledge rApiV2.evaluateScriptCounting pv LedgerApiV2.Verbose LedgerEvaluationContextV2.evalCtxForTesting scriptShortBsV2 datas
+        !(logout, e) = LedgerApiV2.evaluateScriptRestricting pv LedgerApiV2.Verbose LedgerEvaluationContextV2.evalCtxForTesting exBudget scriptShortBsV2 datas
+
+        !size = LedgerScriptsV1.scriptSize scriptMintingPolicyV2
+   in 
+        (logout, e, size)
+  
+----------------------------------------------------------------------------------------
+
+getRight :: P.Either a b -> b
+getRight (P.Right x) = x
+getRight (P.Left _) = P.error "getRight: Left"
+
+----------------------------------------------------------------------------------------
+
+-- -- TODO: Usa plutus-1.1.0
+-- addressToCardanoAddress :: Ledger.NetworkId -> LedgerAddress.Address -> LedgerAddress.CardanoAddress
+-- addressToCardanoAddress network add = Utils.getRight $ LedgerTxCardanoAPI.toCardanoAddressInEra network add
+
+-- -- TODO: Usa plutus-1.1.0
+-- cardanoAddressToAddress :: LedgerAddress.CardanoAddress -> LedgerAddress.Address
+-- cardanoAddressToAddress  = Ledger.toPlutusAddress  
+
+cardanoAddressToAddress :: LedgerAddress.Address -> LedgerAddress.Address
+cardanoAddressToAddress x = x
 
 ----------------------------------------------------------------------------------------
