@@ -5,16 +5,13 @@
 		}
 	],
 	"settings": {
-		"terminal.integrated.defaultProfile.linux": "bash-proyect",
+		"editor.indentSize": "tabSize",
+		"terminal.integrated.defaultProfile.linux": "bashVcode",
 		"terminal.integrated.profiles.linux": {
-			"bash-proyect": {
-				"path": "bash",
-				"icon": "terminal-bash",
-				"args": [
-					"--init-file",
-					".vscode/bash_init_script.sh"
-				]
+			"bashVcode": {
+			"path": "bash",
+			"args": ["--init-file", "vcode_init_script.sh"]
 			}
-		}
+		}	
 	}
 }
