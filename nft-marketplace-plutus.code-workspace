@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"terminal.integrated.defaultProfile.linux": "bash-proyect",
+		"terminal.integrated.profiles.linux": {
+			"bash-proyect": {
+				"path": "bash",
+				"icon": "terminal-bash",
+				"args": [
+					"--init-file",
+					".vscode/bash_init_script.sh"
+				]
+			}
+		}
+	}
+}
