@@ -51,59 +51,10 @@ mkValidator protocolID_CS aldea_CS datumRaw redemerRaw ctxRaw =
             T.RedeemerBuyerBuyNFT red ->
                 let    
                     !inputsRef_WithDatum = Helpers.getReferenceInputsWithDatum @T.DatumProtocol ctx
-                    -- !inputsRef_WithDatum = Helpers.getReferenceInputsWithDatumProtocol ctx
                     !inputs_WithDatum = Helpers.getInputsWithDatum @T.DatumMarket ctx
                     !inputsRef_TxOut_Values_And_Datums = [(LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- inputsRef_WithDatum]
                     !inputs_TxOut_Values_And_Datums = [(LedgerApiV2.txOutValue txtout, dat) | (txtout, dat) <- inputs_WithDatum]
-
-                    -- !inR = LedgerApiV2.txInfoReferenceInputs (LedgerContextsV2.scriptContextTxInfo ctx)
-                    -- !txOuts = [ LedgerApiV2.txInInfoResolved txInfoInput | txInfoInput <- LedgerApiV2.txInfoReferenceInputs (LedgerContextsV2.scriptContextTxInfo ctx)]
-                    -- !txOutReftxOutsAndDatums = [(txOut, Helpers.getDatumFromTxOut @T.DatumProtocol txOut ctx) | txOut <- txOuts]
-                    -- !tx21 = [ (txtout, Helpers.fromJust dat) | (txtout, dat) <- txOutReftxOutsAndDatums, isJust dat ]
-
-                    -- !res11 = traceIfTrue  "REFA 0" (null inR) ||
-                    --         traceIfTrue   "REFA 1" (length inR == 1) ||
-                    --         traceIfTrue   "REFA 2" (length inR == 2) ||
-                    --         traceIfTrue   "REFA >2" (length inR > 2)    
-
-
-                    -- !res12 = traceIfTrue  "REFAB 0" (null txOuts) ||
-                    --         traceIfTrue   "REFAB 1" (length txOuts == 1) ||
-                    --         traceIfTrue   "REFAB 2" (length txOuts == 2) ||
-                    --         traceIfTrue   "REFAB >2" (length txOuts > 2)  
-
-                    -- !res13 = traceIfTrue  "REFABD 0" (null txOutReftxOutsAndDatums) ||
-                    --         traceIfTrue   "REFABD 1" (length txOutReftxOutsAndDatums == 1) ||
-                    --         traceIfTrue   "REFABD 2" (length txOutReftxOutsAndDatums == 2) ||
-                    --         traceIfTrue   "REFABD >2" (length txOutReftxOutsAndDatums > 2)
-
-                    -- !res14 = traceIfTrue  "REFABDD 0" (null tx21) ||
-                    --         traceIfTrue   "REFABDD 1" (length tx21 == 1) ||
-                    --         traceIfTrue   "REFABDD 2" (length tx21 == 2) ||
-                    --         traceIfTrue   "REFABDD >2" (length tx21 > 2)    
-
-                    -- !res1 = traceIfTrue   "REF 0" (null inputsRef_WithDatum) ||
-                    --         traceIfTrue   "REF 1" (length inputsRef_WithDatum == 1) ||
-                    --         traceIfTrue   "REF 2" (length inputsRef_WithDatum == 2) ||
-                    --         traceIfTrue   "REF >2" (length inputsRef_WithDatum > 2)
-
-                    -- !res2 = traceIfTrue   "REFD 0" (null inputsRef_TxOut_Values_And_Datums) ||
-                    --         traceIfTrue   "REFD 1" (length inputsRef_TxOut_Values_And_Datums == 1) ||
-                    --         traceIfTrue   "REFD 2" (length inputsRef_TxOut_Values_And_Datums == 2) ||
-                    --         traceIfTrue   "REFD >2" (length inputsRef_TxOut_Values_And_Datums > 2)
-
-                    -- !res3 = traceIfTrue   "NORM 0" (null inputs_WithDatum) ||
-                    --         traceIfTrue   "NORM 1" (length inputs_WithDatum == 1) ||
-                    --         traceIfTrue   "NORM 2" (length inputs_WithDatum == 2) ||
-                    --         traceIfTrue   "NORM >2" (length inputs_WithDatum > 2)
-
-                    -- !res4 = traceIfTrue   "NORMD 0" (null inputs_TxOut_Values_And_Datums) ||
-                    --         traceIfTrue   "NORMD 1" (length inputs_TxOut_Values_And_Datums == 1) ||
-                    --         traceIfTrue   "NORMD 2" (length inputs_TxOut_Values_And_Datums == 2) ||
-                    --         traceIfTrue   "NORMD >2" (length inputs_TxOut_Values_And_Datums > 2)
-                            
                 in 
-                    -- (res1 || res2 || res3 || res4) && False -- res11 || res12 || res13 || res14 ||
                     validateBuyerBuyNFT protocolID_CS aldea_CS ctx red inputsRef_TxOut_Values_And_Datums inputs_TxOut_Values_And_Datums 
            
             T.RedeemerSellerGetBackNFT -> 
